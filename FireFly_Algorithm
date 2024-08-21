@@ -1,0 +1,117 @@
+#!/usr/bin/env python3
+# -*- coding: utf-8 -*-
+"""
+Created on Sat Jun 29 17:24:39 2024
+
+@author: cheera
+"""
+
+import numpy as np
+import matplotlib.pyplot as plt
+
+def firefly_simple(instr=[20, 100]):
+    n = instr[0]
+    MaxGeneration = instr[1]
+    
+    # Four peak functions
+    def objective_function(x, y):
+        return (np.exp(-(x-4)**2-(y-4)**2) + np.exp(-(x+4)**2-(y-4)**2) +
+                2*np.exp(-x**2-(y+4)**2) + 2*np.exp(-x**2-y**2))
+    
+    # Range for variables
+    range_ = [-5, 5, -5, 5]
+    
+    alpha = 0.5  # Randomness 0--1 (highly random)
+    gamma = 1.0  # Absorption coefficient
+    delta = 0.97  # Randomness reduction
+    
+    Ngrid = 100
+    dx = (range_[1] - range_[0]) / Ngrid
+    dy = (range_[3] - range_[2]) / Ngrid
+    x = np.linspace(range_[0], range_[1], Ngrid)
+    y = np.linspace(range_[2], range_[3], Ngrid)
+    x, y = np.meshgrid(x, y)
+    z = objective_function(x, y)
+    
+    # Display the shape of the objective function
+    plt.figure(1)
+    plt.contourf(x, y, z, cmap='viridis')
+    plt.colorbar()
+    plt.title('Objective Function')
+    
+    # Initial locations of fireflies
+    xn, yn, Lightn = init_ffa(n, range_)
+    
+    # Iterations or pseudo time marching
+    for i in range(MaxGeneration):
+        # Show the contours of the function
+        plt.figure(2)
+        plt.contour(x, y, z, 15)
+        plt.title('Firefly Paths')
+        
+        # Evaluate new solutions
+        zn = objective_function(xn, yn)
+        
+        # Ranking the fireflies by their light intensity
+        indices = np.argsort(zn)
+        xn, yn = xn[indices], yn[indices]
+        Lightn = zn[indices]
+        xo, yo = xn.copy(), yn.copy()
+        Lighto = Lightn.copy()
+        
+        # Trace the paths of all roaming fireflies
+        plt.plot(xn, yn, 'ro')
+        
+        # Move all fireflies to the better locations
+        xn, yn = ffa_move(xn, yn, Lightn, xo, yo, Lighto, alpha, gamma, range_)
+        
+        plt.pause(0.05)
+        plt.draw()
+        
+        # Reduce randomness as iterations proceed
+        alpha = newalpha(alpha, delta)
+    
+    plt.show()
+    best = np.vstack((xo, yo, Lighto)).T
+    return best
+
+def init_ffa(n, range_):
+    xrange = range_[1] - range_[0]
+    yrange = range_[3] - range_[2]
+    xn = np.random.rand(n) * xrange + range_[0]
+    yn = np.random.rand(n) * yrange + range_[2]
+    Lightn = np.zeros(n)
+    return xn, yn, Lightn
+
+def ffa_move(xn, yn, Lightn, xo, yo, Lighto, alpha, gamma, range_):
+    ni = len(yn)
+    nj = len(yo)
+    for i in range(ni):
+        for j in range(nj):
+            r = np.sqrt((xn[i] - xo[j])**2 + (yn[i] - yo[j])**2)
+            if Lightn[i] < Lighto[j]:  # Brighter and more attractive
+                beta0 = 1
+                beta = beta0 * np.exp(-gamma * r**2)
+                xn[i] = xn[i] * (1 - beta) + xo[j] * beta + alpha * (np.random.rand() - 0.5)
+                yn[i] = yn[i] * (1 - beta) + yo[j] * beta + alpha * (np.random.rand() - 0.5)
+    xn, yn = findrange(xn, yn, range_)
+    return xn, yn
+
+def newalpha(alpha, delta):
+    return alpha * delta
+
+def findrange(xn, yn, range_):
+    for i in range(len(yn)):
+        if xn[i] <= range_[0]:
+            xn[i] = range_[0]
+        if xn[i] >= range_[1]:
+            xn[i] = range_[1]
+        if yn[i] <= range_[2]:
+            yn[i] = range_[2]
+        if yn[i] >= range_[3]:
+            yn[i] = range_[3]
+    return xn, yn
+
+# Example usage
+best = firefly_simple([20, 100])
+print(best)
